@@ -1,4 +1,3 @@
-﻿using System;
 using System.IO;
 
 namespace BMPImageGrayscale
@@ -7,59 +6,63 @@ namespace BMPImageGrayscale
     {
         static void Main(string[] args)
         {
-            // input/output file paths
+            int k, l, j, currentArrImgOffset, currentIndexStart;
+            float avg, diff;
+            byte prevVal;
+
             string inputFilePath = args[1];
             string outputFilePath = args[2];
 
-            // file represented as array of bytes
-            byte[] readImg = File.ReadAllBytes(inputFilePath);
+            byte[] inputImageData = File.ReadAllBytes(inputFilePath);
 
-            // bits per pixel -- to know how many elements to skip
-            int bitsPerPixels = (readImg[0x1C + 0x1] << 8) | readImg[0x1C];
+            int bitsPerPixels = (inputImageData[0x1C + 0x1] << 8) | inputImageData[0x1C];
             int bytesPerPixel = bitsPerPixels / 8;
 
-            // get the bitmap array start location -- to know where to start reading
-            int imgArrOffset = (readImg[0xA + 0x3] << 24) | (readImg[0xA + 0x2] << 16) | (readImg[0xA + 0x1] << 8) | readImg[0xA];
+            // where the pixel array starts at
+            int imgArrOffset = (inputImageData[0xA + 0x3] << 24) | (inputImageData[0xA + 0x2] << 16) | (inputImageData[0xA + 0x1] << 8) | inputImageData[0xA];
 
-            // width & height of the image in pixels
-            int height = (readImg[0x16 + 0x3] << 24) | (readImg[0x16 + 0x2] << 16) | (readImg[0x16 + 0x1] << 8) | readImg[0x16];
-            int width = (readImg[0x12 + 0x3] << 24) | (readImg[0x12 + 0x2] << 16) | (readImg[0x12 + 0x1] << 8) | readImg[0x12];
 
-            // grayness level 1 --> all gray 0- -> no color change
-            float graynessLevel = 1f; // default value if no argument is provided
+            int imageHeight = (inputImageData[0x16 + 0x3] << 24) | (inputImageData[0x16 + 0x2] << 16) | (inputImageData[0x16 + 0x1] << 8) | inputImageData[0x16];
+            int imageWidth = (inputImageData[0x12 + 0x3] << 24) | (inputImageData[0x12 + 0x2] << 16) | (inputImageData[0x12 + 0x1] << 8) | inputImageData[0x12];
+
+            float graynessLevel = 1f;
             float.TryParse(args[0], out graynessLevel);
 
-            // calculate the total row width (including the pixel padding)
-            int rowWidth = width * bytesPerPixel;
+            // adds the padding (if required) for the row (byes of row divisible by 4)
+            int rowWidth = imageWidth * bytesPerPixel;
             while(rowWidth % 4 != 0)
             {
                 rowWidth++;
             }
-            // ^^^^^^^^^^^^^^^GOOD UNTIL THIS POINT ^^^^^^^^^^^^^^^^^^^^
 
 
-            int currentArrImgOffset;
-            for(int k = 0; k < height; k++)
+
+            for(k = 0; k < imageHeight; k++)
             {
-                currentArrImgOffset = imgArrOffset + (k * rowWidth);
+                currentArrImgOffset = imgArrOffset + (k * rowWidth); // location where the current row starts
 
-                for (int  l = 0; l < width; l++)
+                for (l = 0; l < imageWidth; l++)
                 {
-                    int currentIndexStart = (currentArrImgOffset + l * bytesPerPixel);
-                    float avg = 0;
+                    currentIndexStart = (currentArrImgOffset + l * bytesPerPixel); // current pixel location (absolute to the file)
+                    avg = 0;
+                    for (j = 0; j < bytesPerPixel; j++)
+                    {
+                        avg += inputImageData[currentIndexStart + j];
+                    }
                     avg = (avg / bytesPerPixel);
 
-                    for (int j = 0; j < bytesPerPixel; j++)
+                    for (j = 0; j < bytesPerPixel; j++)
                     {
-                        var prevVal = readImg[currentIndexStart + j];
-                        var diff = avg - prevVal;
-                        readImg[currentIndexStart + j] = (byte)(prevVal + diff * graynessLevel);
+                        prevVal = inputImageData[currentIndexStart + j];
+                        diff = avg - prevVal; // used for different grayness levels
+                        inputImageData[currentIndexStart + j] = (byte)(prevVal + diff * graynessLevel); // sets the individual pixels
                     }
                 }
             }
 
-     
-            File.WriteAllBytesAsync(outputFilePath, readImg);
+            File.WriteAllBytesAsync(outputFilePath, inputImageData);
+
+            return;
         }
 
     }
